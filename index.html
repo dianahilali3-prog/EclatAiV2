@@ -206,7 +206,7 @@ header { margin-bottom: 1.2rem; text-align: center; padding: 0.3rem 0 0.8rem; cu
 <div class="view" id="view-agent">
   <div class="info-banner">
     <strong>🤖 Agent IA</strong><br>
-    Décris ce que tu veux naturellement. L'Agent comprend, cherche sur Internet si besoin, et lance les générations.
+    Décris ce que tu veux naturellement. L'Agent comprend, cherche sur Internet si besoin, et lance les générations. <strong>Aucune clé nécessaire.</strong>
   </div>
   <div class="panel chat-container">
     <div class="chat-messages" id="chat-messages">
@@ -296,24 +296,6 @@ header { margin-bottom: 1.2rem; text-align: center; padding: 0.3rem 0 0.8rem; cu
   </div>
 
   <div class="panel">
-    <div class="panel-title">🤖 Clé Pollinations (Agent IA)</div>
-    <input type="password" class="input-field" id="pollinations-key-input" placeholder="sk_..." autocomplete="off" spellcheck="false">
-    <button type="button" class="btn-secondary" id="pollinations-save-btn" style="margin-top:0.5rem;">Enregistrer</button>
-    <div style="font-size:0.7rem;color:var(--ink-dim);margin-top:0.5rem;text-align:center;">
-      <a href="https://enter.pollinations.ai/keys" target="_blank" style="color:var(--rose-soft);">enter.pollinations.ai/keys</a>
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-title">🌐 Clé Tavily (recherche Internet)</div>
-    <input type="password" class="input-field" id="tavily-key-input" placeholder="tvly-..." autocomplete="off" spellcheck="false">
-    <button type="button" class="btn-secondary" id="tavily-save-btn" style="margin-top:0.5rem;">Enregistrer</button>
-    <div style="font-size:0.7rem;color:var(--ink-dim);margin-top:0.5rem;text-align:center;">
-      <a href="https://app.tavily.com" target="_blank" style="color:var(--rose-soft);">app.tavily.com</a>
-    </div>
-  </div>
-
-  <div class="panel">
     <div class="panel-title">📊 Dashboard Créateur</div>
     <div class="config-row"><span class="cr-label">Images créées</span><span class="cr-value" id="profile-images">0</span></div>
     <div class="config-row"><span class="cr-label">Vidéos créées</span><span class="cr-value" id="profile-videos">0</span></div>
@@ -324,8 +306,7 @@ header { margin-bottom: 1.2rem; text-align: center; padding: 0.3rem 0 0.8rem; cu
     <div class="panel-title">⚙️ État des services</div>
     <div class="config-section">
       <div class="config-row"><span class="cr-label">Clé Agnes</span><span class="cr-value missing" id="status-agnes">Non configurée</span></div>
-      <div class="config-row"><span class="cr-label">Clé Pollinations</span><span class="cr-value missing" id="status-pollinations">Non configurée</span></div>
-      <div class="config-row"><span class="cr-label">Clé Tavily</span><span class="cr-value missing" id="status-tavily">Non configurée</span></div>
+      <div class="config-row"><span class="cr-label">Agent IA (KeylessAI)</span><span class="cr-value ok">Gratuit, sans clé ✓</span></div>
     </div>
     <button type="button" class="btn-secondary" id="export-btn" style="margin-top:0.5rem;">📦 Exporter mes données</button>
   </div>
@@ -359,23 +340,18 @@ const MODEL_IMAGE = 'agnes-image-2.1-flash';
 const MODEL_VIDEO = 'agnes-video-v2.0';
 const FRAME_RATE = 24;
 
-// Agent IA : Pollinations (nouvelle adresse vérifiée)
-const AGENT_BASE = 'https://gen.pollinations.ai/v1/chat/completions';
-const AGENT_MODEL = 'openai';
-
-// Recherche Internet : Tavily
-const TAVILY_BASE = 'https://api.tavily.com';
+// Agent IA : KeylessAI (gratuit, sans clé, vérifié)
+const AGENT_BASE = 'https://keylessai.thryx.workers.dev/v1/chat/completions';
+const AGENT_MODEL = 'gpt-4o';
 
 const VIDEO_FIRST_POLL_SEC = 80;
 const VIDEO_POLL_INTERVALS = [8, 8, 12, 12, 20, 20, 25];
 const VIDEO_MAX_POLL = 100;
 
 const STORAGE = {
-  agnes: 'eclat_agnes_key_v6',
-  pollinations: 'eclat_pollinations_key_v6',
-  tavily: 'eclat_tavily_key_v6',
-  library: 'eclat_library_v6',
-  characters: 'eclat_characters_v6'
+  agnes: 'eclat_agnes_key_v7',
+  library: 'eclat_library_v7',
+  characters: 'eclat_characters_v7'
 };
 
 const REF_MAX_SIDE = 1280;
@@ -603,35 +579,13 @@ async function pollVideo(videoId, onProgress) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// AGENT IA — Pollinations (nouvelle adresse vérifiée)
+// AGENT IA — KeylessAI (gratuit, sans clé, vérifié)
 // ══════════════════════════════════════════════════════════════════
-async function tavilySearch(query) {
-  const key = getKey('tavily');
-  if (!key) { debugLog('warn', 'TAVILY', 'Pas de clé Tavily'); return []; }
-  debugLog('api', 'TAVILY', 'Recherche : ' + query);
-  try {
-    const res = await fetch(TAVILY_BASE + '/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: key, query: query, search_depth: 'basic', max_results: 5, include_answer: true })
-    });
-    if (!res.ok) { const err = await res.text(); throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 150)); }
-    const data = await res.json();
-    const results = [];
-    if (data.answer) results.push({ title: 'Synthèse', content: data.answer, url: '' });
-    (data.results || []).slice(0, 5).forEach(r => results.push({ title: r.title || '', content: (r.content || '').slice(0, 400), url: r.url || '' }));
-    debugLog('success', 'TAVILY', results.length + ' résultats');
-    return results;
-  } catch (e) { debugLog('error', 'TAVILY', e.message); return []; }
-}
-
 async function callAgent(messages, options = {}) {
-  const pollinationsKey = getKey('pollinations');
-  if (!pollinationsKey) throw new Error('Clé Pollinations manquante dans le Profil');
-  debugLog('api', 'AGENT', 'Requête Pollinations (' + messages.length + ' messages)');
+  debugLog('api', 'AGENT', 'Requête KeylessAI (' + messages.length + ' messages)');
   const res = await fetch(AGENT_BASE, {
     method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + pollinationsKey, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: AGENT_MODEL, messages: messages, temperature: options.temperature ?? 0.8, max_tokens: options.maxTokens ?? 1024 })
   });
   if (!res.ok) { const err = await res.text(); throw new Error('HTTP ' + res.status + ' — ' + err.slice(0, 200)); }
@@ -646,16 +600,11 @@ async function agentRespond(userMessage) {
   const lower = userMessage.toLowerCase();
   const needsWeb = /(cherche|recherche|internet|web|actualité|tendance|trouve|dernières|récent|news|google|qui est|quand|combien|où)/.test(lower);
   let webContext = '';
-  if (needsWeb) {
-    const results = await tavilySearch(userMessage);
-    if (results.length > 0) webContext = '\n\n[RÉSULTATS RECHERCHE INTERNET]\n' + results.map((r, i) => (i+1) + '. ' + r.title + '\n' + r.content).join('\n\n') + '\n[/RÉSULTATS]';
-  }
   const systemPrompt = `Tu es Éclat, un agent créatif IA élégant, chaleureux et efficace. Tu aides à créer des images et des vidéos, et tu réponds aux questions en français.
 
 Règles :
 - Réponds naturellement, concis (3-4 phrases max pour les questions simples)
 - Si l'utilisateur veut créer une image/vidéo, propose-lui et donne-lui les mots-clés
-- Utilise les résultats Internet si tu en as, cite les faits avec précision
 - Sois chaleureuse, encourageante, avec quelques emojis
 - Ne mentionne jamais tes fournisseurs techniques${webContext}`;
   const messages = [{ role: 'system', content: systemPrompt }, ...state.chatHistory.slice(-6), { role: 'user', content: userMessage }];
@@ -762,13 +711,9 @@ function updateStats() {
   $('profile-time').textContent = hours + 'h';
 }
 function updateApiStatus() {
-  const agnes = !!getKey('agnes'), pollinations = !!getKey('pollinations'), tavily = !!getKey('tavily');
-  ['agnes', 'pollinations', 'tavily'].forEach(name => {
-    const el = $('status-' + name);
-    const ok = name === 'agnes' ? agnes : (name === 'pollinations' ? pollinations : tavily);
-    el.textContent = ok ? 'Configurée ✓' : 'Non configurée';
-    el.className = 'cr-value ' + (ok ? 'ok' : 'missing');
-  });
+  const agnes = !!getKey('agnes');
+  $('status-agnes').textContent = agnes ? 'Configurée ✓' : 'Non configurée';
+  $('status-agnes').className = 'cr-value ' + (agnes ? 'ok' : 'missing');
   updateButtons();
 }
 function updateButtons() {
@@ -977,10 +922,8 @@ function renderContentType() {
 (function init() {
   setTimeout(() => { $('splash').classList.add('hidden'); }, 1800);
   loadLibrary(); loadCharacters();
-  const agnesKey = getKey('agnes'), pollinationsKey = getKey('pollinations'), tavilyKey = getKey('tavily');
+  const agnesKey = getKey('agnes');
   if (agnesKey) $('api-key-input').value = agnesKey;
-  if (pollinationsKey) $('pollinations-key-input').value = pollinationsKey;
-  if (tavilyKey) $('tavily-key-input').value = tavilyKey;
   document.querySelectorAll('.nav-tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
   document.querySelectorAll('#content-type .chip').forEach(c => c.addEventListener('click', () => { state.contentType = c.dataset.type; renderContentType(); }));
   $('create-prompt').addEventListener('input', updateButtons);
@@ -995,8 +938,6 @@ function renderContentType() {
   $('chat-send').addEventListener('click', sendAgentMessage);
   $('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendAgentMessage(); } });
   $('api-save-btn').addEventListener('click', () => { setKey('agnes', $('api-key-input').value.trim()); updateApiStatus(); showToast('Clé Agnes enregistrée ✓', 'success'); });
-  $('pollinations-save-btn').addEventListener('click', () => { setKey('pollinations', $('pollinations-key-input').value.trim()); updateApiStatus(); showToast('Clé Pollinations enregistrée ✓', 'success'); });
-  $('tavily-save-btn').addEventListener('click', () => { setKey('tavily', $('tavily-key-input').value.trim()); updateApiStatus(); showToast('Clé Tavily enregistrée ✓', 'success'); });
   $('export-btn').addEventListener('click', () => {
     const data = { library: state.library, characters: state.characters.map(c => ({ ...c, image: '[b64]' })), exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1008,8 +949,7 @@ function renderContentType() {
   $('debug-copy-btn').addEventListener('click', (e) => { e.stopPropagation(); navigator.clipboard.writeText(debugEntries.map(x => x.time + ' [' + x.category + '] ' + x.message).join('\n')).then(() => showToast('Copié', 'success')).catch(() => showToast('Échec copie', 'error')); });
   renderLibrary(); renderHomeRecent(); updateStats(); updateApiStatus(); renderContentType();
   debugLog('success', 'INIT', 'Éclat AI prêt');
-  debugLog('info', 'INIT', 'Agent : Pollinations (gen.pollinations.ai)');
-  debugLog('info', 'INIT', 'Recherche : Tavily ' + (tavilyKey ? '(clé configurée)' : '(clé manquante)'));
+  debugLog('info', 'INIT', 'Agent : KeylessAI (gratuit, sans clé)');
 })();
 </script>
 </body>
